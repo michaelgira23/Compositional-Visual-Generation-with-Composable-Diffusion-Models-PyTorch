@@ -4,8 +4,8 @@ import torchvision.utils as tvu
 import datetime
 
 from diffusers import LMSDiscreteScheduler, DDIMScheduler, DDPMScheduler, PNDMScheduler
-from composable_diffusion.composable_stable_diffusion.pipeline_composable_stable_diffusion import \
-    ComposableStableDiffusionPipeline
+from composable_diffusion.composable_stable_diffusion.pipeline_composable_stable_diffusion_im_embed import \
+    ComposableStableDiffusionImageEmbedPipeline
 
 import argparse
 
@@ -29,7 +29,7 @@ weights = args.weights
 scale = args.scale
 steps = args.steps
 
-pipe = ComposableStableDiffusionPipeline.from_pretrained(
+pipe = ComposableStableDiffusionImageEmbedPipeline.from_pretrained(
     args.model_path,
 ).to(device)
 
