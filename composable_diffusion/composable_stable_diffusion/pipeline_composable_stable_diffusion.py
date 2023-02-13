@@ -82,7 +82,8 @@ class ComposableStableDiffusionPipeline(DiffusionPipeline):
                 " it would be very nice if you could open a Pull request for the `scheduler/scheduler_config.json`"
                 " file"
             )
-            deprecate("steps_offset!=1", "1.0.0", deprecation_message, standard_warn=False)
+            deprecate("steps_offset!=1", "1.0.0",
+                      deprecation_message, standard_warn=False)
             new_config = dict(scheduler.config)
             new_config["steps_offset"] = 1
             scheduler._internal_dict = FrozenDict(new_config)
@@ -95,7 +96,8 @@ class ComposableStableDiffusionPipeline(DiffusionPipeline):
                 " future versions. If you have downloaded this checkpoint from the Hugging Face Hub, it would be very"
                 " nice if you could open a Pull request for the `scheduler/scheduler_config.json` file"
             )
-            deprecate("clip_sample not set", "1.0.0", deprecation_message, standard_warn=False)
+            deprecate("clip_sample not set", "1.0.0",
+                      deprecation_message, standard_warn=False)
             new_config = dict(scheduler.config)
             new_config["clip_sample"] = False
             scheduler._internal_dict = FrozenDict(new_config)
@@ -119,7 +121,8 @@ class ComposableStableDiffusionPipeline(DiffusionPipeline):
         is_unet_version_less_0_9_0 = hasattr(unet.config, "_diffusers_version") and version.parse(
             version.parse(unet.config._diffusers_version).base_version
         ) < version.parse("0.9.0.dev0")
-        is_unet_sample_size_less_64 = hasattr(unet.config, "sample_size") and unet.config.sample_size < 64
+        is_unet_sample_size_less_64 = hasattr(
+            unet.config, "sample_size") and unet.config.sample_size < 64
         if is_unet_version_less_0_9_0 and is_unet_sample_size_less_64:
             deprecation_message = (
                 "The configuration file of the unet has set the default `sample_size` to smaller than"
@@ -132,7 +135,8 @@ class ComposableStableDiffusionPipeline(DiffusionPipeline):
                 " checkpoint from the Hugging Face Hub, it would be very nice if you could open a Pull request for"
                 " the `unet/config.json` file"
             )
-            deprecate("sample_size<64", "1.0.0", deprecation_message, standard_warn=False)
+            deprecate("sample_size<64", "1.0.0",
+                      deprecation_message, standard_warn=False)
             new_config = dict(unet.config)
             new_config["sample_size"] = 64
             unet._internal_dict = FrozenDict(new_config)
@@ -146,8 +150,10 @@ class ComposableStableDiffusionPipeline(DiffusionPipeline):
             safety_checker=safety_checker,
             feature_extractor=feature_extractor,
         )
-        self.vae_scale_factor = 2 ** (len(self.vae.config.block_out_channels) - 1)
-        self.register_to_config(requires_safety_checker=requires_safety_checker)
+        self.vae_scale_factor = 2 ** (
+            len(self.vae.config.block_out_channels) - 1)
+        self.register_to_config(
+            requires_safety_checker=requires_safety_checker)
 
     def enable_vae_slicing(self):
         r"""
@@ -174,7 +180,8 @@ class ComposableStableDiffusionPipeline(DiffusionPipeline):
         if is_accelerate_available():
             from accelerate import cpu_offload
         else:
-            raise ImportError("Please install accelerate via `pip install accelerate`")
+            raise ImportError(
+                "Please install accelerate via `pip install accelerate`")
 
         device = torch.device(f"cuda:{gpu_id}")
 
@@ -232,10 +239,12 @@ class ComposableStableDiffusionPipeline(DiffusionPipeline):
             return_tensors="pt",
         )
         text_input_ids = text_inputs.input_ids
-        untruncated_ids = self.tokenizer(prompt, padding="longest", return_tensors="pt").input_ids
+        untruncated_ids = self.tokenizer(
+            prompt, padding="longest", return_tensors="pt").input_ids
 
         if untruncated_ids.shape[-1] >= text_input_ids.shape[-1] and not torch.equal(text_input_ids, untruncated_ids):
-            removed_text = self.tokenizer.batch_decode(untruncated_ids[:, self.tokenizer.model_max_length - 1 : -1])
+            removed_text = self.tokenizer.batch_decode(
+                untruncated_ids[:, self.tokenizer.model_max_length - 1: -1])
             logger.warning(
                 "The following part of your input was truncated because CLIP can only handle sequences up to"
                 f" {self.tokenizer.model_max_length} tokens: {removed_text}"
@@ -250,12 +259,15 @@ class ComposableStableDiffusionPipeline(DiffusionPipeline):
             text_input_ids.to(device),
             attention_mask=attention_mask,
         )
+
         text_embeddings = text_embeddings[0]
+        # print('txt embed', text_embeddings.shape)
 
         # duplicate text embeddings for each generation per prompt, using mps friendly method
         bs_embed, seq_len, _ = text_embeddings.shape
         text_embeddings = text_embeddings.repeat(1, num_images_per_prompt, 1)
-        text_embeddings = text_embeddings.view(bs_embed * num_images_per_prompt, seq_len, -1)
+        text_embeddings = text_embeddings.view(
+            bs_embed * num_images_per_prompt, seq_len, -1)
 
         # get unconditional embeddings for classifier free guidance
         if do_classifier_free_guidance:
@@ -300,21 +312,35 @@ class ComposableStableDiffusionPipeline(DiffusionPipeline):
 
             # duplicate unconditional embeddings for each generation per prompt, using mps friendly method
             seq_len = uncond_embeddings.shape[1]
-            uncond_embeddings = uncond_embeddings.repeat(1, num_images_per_prompt, 1)
-            uncond_embeddings = uncond_embeddings.view(batch_size * num_images_per_prompt, seq_len, -1)
+            uncond_embeddings = uncond_embeddings.repeat(
+                1, num_images_per_prompt, 1)
+            uncond_embeddings = uncond_embeddings.view(
+                batch_size * num_images_per_prompt, seq_len, -1)
 
             # For classifier free guidance, we need to do two forward passes.
             # Here we concatenate the unconditional and text embeddings into a single batch
             # to avoid doing two forward passes
+
+            print('uncond', uncond_embeddings.shape)
+            print('txt', text_embeddings.shape)
             text_embeddings = torch.cat([uncond_embeddings, text_embeddings])
+            print('combined', text_embeddings.shape)
+
+            # print('txt', text_embeddings.shape)
+            # print('uncond', uncond_embeddings.shape)
+            # compare = uncond_embeddings.repeat(2, 1, 1)
+            # print('compare', compare.shape)
+            # print(text_embeddings == compare)
 
         return text_embeddings
 
     def run_safety_checker(self, image, device, dtype):
         if self.safety_checker is not None:
-            safety_checker_input = self.feature_extractor(self.numpy_to_pil(image), return_tensors="pt").to(device)
+            safety_checker_input = self.feature_extractor(
+                self.numpy_to_pil(image), return_tensors="pt").to(device)
             image, has_nsfw_concept = self.safety_checker(
-                images=image, clip_input=safety_checker_input.pixel_values.to(dtype)
+                images=image, clip_input=safety_checker_input.pixel_values.to(
+                    dtype)
             )
         else:
             has_nsfw_concept = None
@@ -334,26 +360,31 @@ class ComposableStableDiffusionPipeline(DiffusionPipeline):
         # eta corresponds to η in DDIM paper: https://arxiv.org/abs/2010.02502
         # and should be between [0, 1]
 
-        accepts_eta = "eta" in set(inspect.signature(self.scheduler.step).parameters.keys())
+        accepts_eta = "eta" in set(inspect.signature(
+            self.scheduler.step).parameters.keys())
         extra_step_kwargs = {}
         if accepts_eta:
             extra_step_kwargs["eta"] = eta
 
         # check if the scheduler accepts generator
-        accepts_generator = "generator" in set(inspect.signature(self.scheduler.step).parameters.keys())
+        accepts_generator = "generator" in set(
+            inspect.signature(self.scheduler.step).parameters.keys())
         if accepts_generator:
             extra_step_kwargs["generator"] = generator
         return extra_step_kwargs
 
     def check_inputs(self, prompt, height, width, callback_steps):
         if not isinstance(prompt, str) and not isinstance(prompt, list):
-            raise ValueError(f"`prompt` has to be of type `str` or `list` but is {type(prompt)}")
+            raise ValueError(
+                f"`prompt` has to be of type `str` or `list` but is {type(prompt)}")
 
         if height % 8 != 0 or width % 8 != 0:
-            raise ValueError(f"`height` and `width` have to be divisible by 8 but are {height} and {width}.")
+            raise ValueError(
+                f"`height` and `width` have to be divisible by 8 but are {height} and {width}.")
 
         if (callback_steps is None) or (
-            callback_steps is not None and (not isinstance(callback_steps, int) or callback_steps <= 0)
+            callback_steps is not None and (not isinstance(
+                callback_steps, int) or callback_steps <= 0)
         ):
             raise ValueError(
                 f"`callback_steps` has to be a positive integer but is {callback_steps} of type"
@@ -361,16 +392,20 @@ class ComposableStableDiffusionPipeline(DiffusionPipeline):
             )
 
     def prepare_latents(self, batch_size, num_channels_latents, height, width, dtype, device, generator, latents=None):
-        shape = (batch_size, num_channels_latents, height // self.vae_scale_factor, width // self.vae_scale_factor)
+        shape = (batch_size, num_channels_latents, height //
+                 self.vae_scale_factor, width // self.vae_scale_factor)
         if latents is None:
             if device.type == "mps":
                 # randn does not work reproducibly on mps
-                latents = torch.randn(shape, generator=generator, device="cpu", dtype=dtype).to(device)
+                latents = torch.randn(
+                    shape, generator=generator, device="cpu", dtype=dtype).to(device)
             else:
-                latents = torch.randn(shape, generator=generator, device=device, dtype=dtype)
+                latents = torch.randn(
+                    shape, generator=generator, device=device, dtype=dtype)
         else:
             if latents.shape != shape:
-                raise ValueError(f"Unexpected latents shape, got {latents.shape}, expected {shape}")
+                raise ValueError(
+                    f"Unexpected latents shape, got {latents.shape}, expected {shape}")
             latents = latents.to(device)
 
         # scale the initial noise by the standard deviation required by the scheduler
@@ -392,7 +427,8 @@ class ComposableStableDiffusionPipeline(DiffusionPipeline):
         latents: Optional[torch.FloatTensor] = None,
         output_type: Optional[str] = "pil",
         return_dict: bool = True,
-        callback: Optional[Callable[[int, int, torch.FloatTensor], None]] = None,
+        callback: Optional[Callable[[
+            int, int, torch.FloatTensor], None]] = None,
         callback_steps: Optional[int] = 1,
         weights: Optional[str] = "",
     ):
@@ -472,7 +508,8 @@ class ComposableStableDiffusionPipeline(DiffusionPipeline):
             if not weights:
                 # specify weights for prompts (excluding the unconditional score)
                 print('using equal positive weights (conjunction) for all prompts...')
-                weights = torch.tensor([guidance_scale] * len(prompt), device=self.device).reshape(-1, 1, 1, 1)
+                weights = torch.tensor(
+                    [guidance_scale] * len(prompt), device=self.device).reshape(-1, 1, 1, 1)
             else:
                 # set prompt weight for each
                 num_prompts = len(prompt) if isinstance(prompt, list) else 1
@@ -482,8 +519,10 @@ class ComposableStableDiffusionPipeline(DiffusionPipeline):
                     weights.append(guidance_scale)
                 else:
                     weights = weights[:num_prompts]
-                assert len(weights) == len(prompt), "weights specified are not equal to the number of prompts"
-                weights = torch.tensor(weights, device=self.device).reshape(-1, 1, 1, 1)
+                assert len(weights) == len(
+                    prompt), "weights specified are not equal to the number of prompts"
+                weights = torch.tensor(
+                    weights, device=self.device).reshape(-1, 1, 1, 1)
         else:
             weights = guidance_scale
 
@@ -491,6 +530,8 @@ class ComposableStableDiffusionPipeline(DiffusionPipeline):
         text_embeddings = self._encode_prompt(
             prompt, device, num_images_per_prompt, do_classifier_free_guidance, negative_prompt
         )
+        # print('text embeddings', text_embeddings.shape)
+        # print('text embeddings', text_embeddings)
 
         # 4. Prepare timesteps
         self.scheduler.set_timesteps(num_inference_steps, device=device)
@@ -510,36 +551,48 @@ class ComposableStableDiffusionPipeline(DiffusionPipeline):
         )
 
         # composable diffusion
+        print('len prompt', len(prompt))
+        print('bs', batch_size)
         if isinstance(prompt, list) and batch_size == 1:
             # remove extra unconditional embedding
             text_embeddings = text_embeddings[len(prompt)-1:]
+
+        # print('text embeddings shape', text_embeddings.shape)
+        # print('text embeddings shape', text_embeddings)
 
         # 6. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
         extra_step_kwargs = self.prepare_extra_step_kwargs(generator, eta)
 
         # 7. Denoising loop
-        num_warmup_steps = len(timesteps) - num_inference_steps * self.scheduler.order
+        num_warmup_steps = len(timesteps) - \
+            num_inference_steps * self.scheduler.order
         with self.progress_bar(total=num_inference_steps) as progress_bar:
             for i, t in enumerate(timesteps):
                 # expand the latents if we are doing classifier free guidance
-                latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
-                latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
+                latent_model_input = torch.cat(
+                    [latents] * 2) if do_classifier_free_guidance else latents
+                latent_model_input = self.scheduler.scale_model_input(
+                    latent_model_input, t)
 
                 # predict the noise residual
                 noise_pred = []
                 for j in range(text_embeddings.shape[0]):
                     noise_pred.append(
-                        self.unet(latent_model_input[:1], t, encoder_hidden_states=text_embeddings[j:j+1]).sample
+                        self.unet(
+                            latent_model_input[:1], t, encoder_hidden_states=text_embeddings[j:j+1]).sample
                     )
                 noise_pred = torch.cat(noise_pred, dim=0)
 
                 # perform guidance
                 if do_classifier_free_guidance:
                     noise_pred_uncond, noise_pred_text = noise_pred[:1], noise_pred[1:]
-                    noise_pred = noise_pred_uncond + (weights * (noise_pred_text - noise_pred_uncond)).sum(dim=0, keepdims=True)
+                    noise_pred = noise_pred_uncond + \
+                        (weights * (noise_pred_text - noise_pred_uncond)
+                         ).sum(dim=0, keepdims=True)
 
                 # compute the previous noisy sample x_t -> x_t-1
-                latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs).prev_sample
+                latents = self.scheduler.step(
+                    noise_pred, t, latents, **extra_step_kwargs).prev_sample
 
                 # call the callback, if provided
                 if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
@@ -551,7 +604,8 @@ class ComposableStableDiffusionPipeline(DiffusionPipeline):
         image = self.decode_latents(latents)
 
         # 9. Run safety checker
-        image, has_nsfw_concept = self.run_safety_checker(image, device, text_embeddings.dtype)
+        image, has_nsfw_concept = self.run_safety_checker(
+            image, device, text_embeddings.dtype)
 
         # 10. Convert to PIL
         if output_type == "pil":

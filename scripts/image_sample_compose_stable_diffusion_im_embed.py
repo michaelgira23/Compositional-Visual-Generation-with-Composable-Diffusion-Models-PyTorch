@@ -29,8 +29,13 @@ weights = args.weights
 scale = args.scale
 steps = args.steps
 
+# pipe = ComposableStableDiffusionImageEmbedPipeline.from_pretrained(
+#     args.model_path,
+# ).to(device)
+
 pipe = ComposableStableDiffusionImageEmbedPipeline.from_pretrained(
-    args.model_path,
+    'lambdalabs/sd-image-variations-diffusers',
+    revision="v2.0",
 ).to(device)
 
 # you can find more schedulers from https://github.com/huggingface/diffusers/blob/main/src/diffusers/__init__.py#L54
@@ -56,4 +61,5 @@ grid = tvu.make_grid(th.stack(images, dim=0), nrow=4, padding=0)
 filename = f'{args.prompts}_{args.weights}_' + str(datetime.datetime.now()) + '.png'
 filename = filename.replace(' |', ',')
 filename = filename.replace(':', '-')
+filename = filename.replace('/', '-')
 tvu.save_image(grid, filename)
