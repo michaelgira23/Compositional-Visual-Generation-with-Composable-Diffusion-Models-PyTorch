@@ -557,9 +557,6 @@ class ComposableStableDiffusionPipeline(DiffusionPipeline):
             # remove extra unconditional embedding
             text_embeddings = text_embeddings[len(prompt)-1:]
 
-        # print('text embeddings shape', text_embeddings.shape)
-        # print('text embeddings shape', text_embeddings)
-
         # 6. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
         extra_step_kwargs = self.prepare_extra_step_kwargs(generator, eta)
 
