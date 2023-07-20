@@ -161,3 +161,5 @@ cython_debug/
 .DS_Store
 *results*
 point_e_model_cache/
+/scripts/*.pt
+/scripts/palm-out/*.png

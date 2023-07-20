@@ -205,31 +205,11 @@ class ComposableStableDiffusionImageEmbedPipeline(DiffusionPipeline):
             inp = tform(im).to(device).unsqueeze(0)
 
             image_embedding, negative_prompt_embedding = self._encode_image(inp, device, num_images_per_prompt, do_classifier_free_guidance)
-            # return torch.cat([negative_prompt_embedding, image_embedding])
             negative_prompt_embeddings.append(negative_prompt_embedding)
             image_embeddings.append(image_embedding)
 
-
-            # image_embeddings.append(image_embedding)
-            # print(image_embedding)
-            # print(image_embedding.shape)
-            # image_embeddings = torch.cat([negative_prompt_embeds, image_embeddings])
-        # print('single img embed', image_embeddings[0].shape)
-
-        # print('image embedding')
-        # print(image_embeddings[0].shape)
-
-        # Combine all image embeddings
-        # negative_prompt_embeds, image_embedding = torch.Tensor(dtype=image_embeddings[0].dtype)
-
-        # uncond
-        # for image_embedding in image_embeddings:
-        # image_embeddings_torch =
-
         final_embeddings = torch.cat([torch.cat(negative_prompt_embeddings), torch.cat(image_embeddings)])
-
         return final_embeddings
-        # return image_embeddings
 
     # def _encode_image(self, prompt, device, num_images_per_prompt, do_classifier_free_guidance, negative_prompt):
     def _encode_image(self, image, device, num_images_per_prompt, do_classifier_free_guidance):
@@ -254,7 +234,7 @@ class ComposableStableDiffusionImageEmbedPipeline(DiffusionPipeline):
             # Here we concatenate the unconditional and text embeddings into a single batch
             # to avoid doing two forward passes
             return image_embeddings, negative_prompt_embeds
-            image_embeddings = torch.cat([negative_prompt_embeds, image_embeddings])
+            # image_embeddings = torch.cat([negative_prompt_embeds, image_embeddings])
 
         return image_embeddings
 
@@ -341,6 +321,7 @@ class ComposableStableDiffusionImageEmbedPipeline(DiffusionPipeline):
             )
 
     def prepare_latents(self, batch_size, num_channels_latents, height, width, dtype, device, generator, latents=None):
+        # generator.manual_seed(0)
         shape = (batch_size, num_channels_latents, height //
                  self.vae_scale_factor, width // self.vae_scale_factor)
         if latents is None:
@@ -500,7 +481,7 @@ class ComposableStableDiffusionImageEmbedPipeline(DiffusionPipeline):
         # image_embeddings = self._encode_image_og(inp, device, num_images_per_prompt, do_classifier_free_guidance)
 
         print('embeddings shape', image_embeddings.shape)
-        torch.save(image_embeddings, 'D:\Documents\GitHub\Compositional-Visual-Generation-with-Composable-Diffusion-Models-PyTorch\scripts\me.pt')
+        torch.save(image_embeddings, 'D:\Documents\GitHub\Compositional-Visual-Generation-with-Composable-Diffusion-Models-PyTorch\scripts\me-embed.pt')
 
         # print('total img embeddings', image_embeddings)
         # print(image_embeddings.shape)
@@ -521,10 +502,12 @@ class ComposableStableDiffusionImageEmbedPipeline(DiffusionPipeline):
             generator,
             latents,
         )
+        torch.save(latents, 'D:\Documents\GitHub\Compositional-Visual-Generation-with-Composable-Diffusion-Models-PyTorch\scripts\me-latents.pt')
 
         # composable diffusion
         print('len prompt', len(prompt))
         print('bs', batch_size)
+        print('do cfg', do_classifier_free_guidance)
         if isinstance(prompt, list) and batch_size == 1:
             # remove extra unconditional embedding
             print('remove extra unconditional embeddings')
@@ -532,6 +515,13 @@ class ComposableStableDiffusionImageEmbedPipeline(DiffusionPipeline):
 
         # 6. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
         extra_step_kwargs = self.prepare_extra_step_kwargs(generator, eta)
+
+        # ps = []
+        # for p in self.unet.parameters():
+        #     ps.append(p)
+        # torch.save(ps, 'D:\Documents\GitHub\Compositional-Visual-Generation-with-Composable-Diffusion-Models-PyTorch\scripts\me-unet.pt')
+
+        print(self.scheduler)
 
         # 7. Denoising loop
         num_warmup_steps = len(timesteps) - \
@@ -545,20 +535,39 @@ class ComposableStableDiffusionImageEmbedPipeline(DiffusionPipeline):
                     latent_model_input, t)
 
                 # predict the noise residual
+                torch.save(latent_model_input, 'D:\Documents\GitHub\Compositional-Visual-Generation-with-Composable-Diffusion-Models-PyTorch\scripts\me-input.pt')
                 noise_pred = []
                 for j in range(image_embeddings.shape[0]):
+                    generator.manual_seed(0)
                     noise_pred.append(
                         self.unet(
                             latent_model_input[:1], t, encoder_hidden_states=image_embeddings[j:j+1]).sample
                     )
+                    # if i == 0:
+                    #     # torch.save(latent_model_input, 'D:\Documents\GitHub\Compositional-Visual-Generation-with-Composable-Diffusion-Models-PyTorch\scripts\me-input.pt')
+                    #     torch.save(image_embeddings[j:j+1], 'D:\Documents\GitHub\Compositional-Visual-Generation-with-Composable-Diffusion-Models-PyTorch\scripts\me-hidden.pt')
+                    #     print('t', t)
+                    #     torch.save(noise_pred[j], 'D:\Documents\GitHub\Compositional-Visual-Generation-with-Composable-Diffusion-Models-PyTorch\scripts\me-pred.pt')
                 noise_pred = torch.cat(noise_pred, dim=0)
+                if i == 0:
+                    torch.save(noise_pred, 'D:\Documents\GitHub\Compositional-Visual-Generation-with-Composable-Diffusion-Models-PyTorch\scripts\me-noise-pred.pt')
 
                 # perform guidance
+                # @TODO Check values
                 if do_classifier_free_guidance:
                     noise_pred_uncond, noise_pred_text = noise_pred[:1], noise_pred[1:]
+                    if i == 1:
+                        print('i', i)
+                        print('t', t)
+                        print('weights', weights)
+                        torch.save(noise_pred_uncond, 'D:\Documents\GitHub\Compositional-Visual-Generation-with-Composable-Diffusion-Models-PyTorch\scripts\me-uncond.pt')
+                        torch.save(noise_pred_text, 'D:\Documents\GitHub\Compositional-Visual-Generation-with-Composable-Diffusion-Models-PyTorch\scripts\me-text.pt')
                     noise_pred = noise_pred_uncond + \
                         (weights * (noise_pred_text - noise_pred_uncond)
                          ).sum(dim=0, keepdims=True)
+
+                if i == 1:
+                    torch.save(noise_pred, 'D:\Documents\GitHub\Compositional-Visual-Generation-with-Composable-Diffusion-Models-PyTorch\scripts\me-noise-pred-2.pt')
 
                 # compute the previous noisy sample x_t -> x_t-1
                 latents = self.scheduler.step(
